@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
 
@@ -20,6 +21,21 @@ export async function POST(
       output: body.output || "",
     })
     .returning();
+
+  Sentry.logger.info(
+    Sentry.logger.fmt`Task created: ${task.title}`,
+    {
+      taskId: task.id,
+      projectId: task.projectId,
+      title: task.title,
+      status: task.status,
+      priority: task.priority,
+    }
+  );
+
+  Sentry.metrics.count("task.created", 1, {
+    attributes: { priority: task.priority, status: task.status },
+  });
 
   return NextResponse.json({
     id: task.id,

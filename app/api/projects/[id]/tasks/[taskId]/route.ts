@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -18,6 +19,12 @@ export async function PATCH(
 
   if (!updated) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (body.status) {
+    Sentry.metrics.count("task.status_change", 1, {
+      attributes: { status: updated.status, priority: updated.priority },
+    });
   }
 
   return NextResponse.json({
@@ -40,6 +47,8 @@ export async function DELETE(
   const { taskId } = await params;
 
   await db.delete(tasks).where(eq(tasks.id, taskId));
+
+  Sentry.metrics.count("task.deleted", 1);
 
   return NextResponse.json({ success: true });
 }

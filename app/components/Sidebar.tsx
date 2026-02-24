@@ -4,18 +4,19 @@ import { useState, useEffect } from "react";
 import {
   Plus,
   FolderKanban,
+  Search,
   ChevronDown,
   Hash,
   LayoutDashboard,
   Trash2,
 } from "lucide-react";
-import type { Project } from "@/lib/types";
+import type { Project, ProjectMode } from "@/lib/types";
 
 interface SidebarProps {
   projects: Project[];
   selectedProjectId: string | null;
   onSelectProject: (id: string) => void;
-  onCreateProject: (name: string, description: string) => void;
+  onCreateProject: (name: string, description: string, mode: ProjectMode) => void;
   onDeleteProject: (id: string) => void;
   createOpen?: boolean;
   onCreateOpenChange?: (open: boolean) => void;
@@ -33,6 +34,7 @@ export default function Sidebar({
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newMode, setNewMode] = useState<ProjectMode>("build");
 
   // Sync with parent-controlled open state
   useEffect(() => {
@@ -45,9 +47,10 @@ export default function Sidebar({
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim()) return;
-    onCreateProject(newName.trim(), newDesc.trim());
+    onCreateProject(newName.trim(), newDesc.trim(), newMode);
     setNewName("");
     setNewDesc("");
+    setNewMode("build");
     setShowCreate(false);
   }
 
@@ -95,8 +98,34 @@ export default function Sidebar({
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
               placeholder="Description (optional)"
-              className="w-full mb-3 text-sm"
+              className="w-full mb-2 text-sm"
             />
+            <div className="flex gap-1.5 mb-3">
+              <button
+                type="button"
+                onClick={() => setNewMode("build")}
+                className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 px-2 rounded-md transition-colors ${
+                  newMode === "build"
+                    ? "bg-accent-primary text-white"
+                    : "bg-bg-secondary text-text-secondary hover:text-text-primary border border-border-primary"
+                }`}
+              >
+                <FolderKanban size={12} />
+                Build
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewMode("research")}
+                className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 px-2 rounded-md transition-colors ${
+                  newMode === "research"
+                    ? "bg-accent-primary text-white"
+                    : "bg-bg-secondary text-text-secondary hover:text-text-primary border border-border-primary"
+                }`}
+              >
+                <Search size={12} />
+                Research
+              </button>
+            </div>
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -134,14 +163,25 @@ export default function Sidebar({
                     : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                 }`}
               >
-                <FolderKanban
-                  size={15}
-                  className={
-                    isActive
-                      ? "text-accent-primary"
-                      : "text-text-tertiary group-hover:text-text-secondary"
-                  }
-                />
+                {project.mode === "research" ? (
+                  <Search
+                    size={15}
+                    className={
+                      isActive
+                        ? "text-accent-primary"
+                        : "text-text-tertiary group-hover:text-text-secondary"
+                    }
+                  />
+                ) : (
+                  <FolderKanban
+                    size={15}
+                    className={
+                      isActive
+                        ? "text-accent-primary"
+                        : "text-text-tertiary group-hover:text-text-secondary"
+                    }
+                  />
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">
                     {project.name}

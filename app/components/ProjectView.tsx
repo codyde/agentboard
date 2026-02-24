@@ -10,13 +10,15 @@ import {
   AlertCircle,
   ListTodo,
 } from "lucide-react";
-import type { Project, Task, TaskPriority, ExecutionLogEntry } from "@/lib/types";
+import type { Project, Task, TaskPriority, ExecutionLogEntry, ResearchSheet } from "@/lib/types";
 import TaskRow from "./TaskRow";
 import ExecutionLog from "./ExecutionLog";
+import ResearchPanel from "./ResearchPanel";
 
 interface ProjectViewProps {
   project: Project;
   logs: ExecutionLogEntry[];
+  researchSheets: ResearchSheet[];
   onUpdateProject: (project: Project) => void;
   onAddTask: (task: { title: string; description: string; priority: string }) => void;
   onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
@@ -28,6 +30,7 @@ interface ProjectViewProps {
 export default function ProjectView({
   project,
   logs,
+  researchSheets,
   onUpdateProject,
   onAddTask,
   onUpdateTask,
@@ -147,7 +150,7 @@ export default function ProjectView({
               }`}
             >
               <Play size={14} />
-              Execute Build
+              {project.mode === "research" ? "Execute Research" : "Execute Build"}
             </button>
           )}
         </div>
@@ -283,10 +286,12 @@ export default function ProjectView({
           </div>
         </div>
 
-        {/* Execution log panel */}
-        {(isExecuting || logs.length > 0 || project.status === "completed" || project.status === "failed") && (
+        {/* Right panel: Research results or Execution log */}
+        {project.mode === "research" && researchSheets.length > 0 && !isExecuting ? (
+          <ResearchPanel sheets={researchSheets} tasks={project.tasks} />
+        ) : (isExecuting || logs.length > 0 || project.status === "completed" || project.status === "failed") ? (
           <ExecutionLog logs={logs} isExecuting={isExecuting} />
-        )}
+        ) : null}
       </div>
     </div>
   );

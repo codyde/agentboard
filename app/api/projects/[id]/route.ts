@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { db } from "@/lib/db";
-import { projects, tasks, executionLogs } from "@/lib/db/schema";
+import { projects, tasks, executionLogs, researchSheets } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function GET(
@@ -23,6 +24,7 @@ export async function GET(
     name: project.name,
     description: project.description,
     identifier: project.identifier,
+    mode: project.mode,
     status: project.status,
     createdAt: project.createdAt.toISOString(),
     tasks: project.tasks.map((t) => ({
@@ -56,11 +58,18 @@ export async function PATCH(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  if (body.status) {
+    Sentry.metrics.count("project.status_change", 1, {
+      attributes: { status: updated.status },
+    });
+  }
+
   return NextResponse.json({
     id: updated.id,
     name: updated.name,
     description: updated.description,
     identifier: updated.identifier,
+    mode: updated.mode,
     status: updated.status,
     createdAt: updated.createdAt.toISOString(),
   });
@@ -72,9 +81,12 @@ export async function DELETE(
 ) {
   const { id } = await params;
 
+  await db.delete(researchSheets).where(eq(researchSheets.projectId, id));
   await db.delete(executionLogs).where(eq(executionLogs.projectId, id));
   await db.delete(tasks).where(eq(tasks.projectId, id));
   await db.delete(projects).where(eq(projects.id, id));
+
+  Sentry.metrics.count("project.deleted", 1);
 
   return NextResponse.json({ success: true });
 }

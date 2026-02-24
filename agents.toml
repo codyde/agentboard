@@ -1,0 +1,36 @@
+version = 1
+# Check skills into git so collaborators get them without running 'dotagents install'.
+# Set to true (or remove) to gitignore managed skills instead.
+gitignore = false
+agents = ["claude"]
+
+[trust]
+allow_all = true
+
+[[skills]]
+name = "dotagents"
+source = "getsentry/dotagents"
+
+[[skills]]
+name = "sentry-fix-issues"
+source = "getsentry/sentry-agent-skills"
+
+[[skills]]
+name = "sentry-pr-code-review"
+source = "getsentry/sentry-agent-skills"
+
+[[skills]]
+name = "sentry-setup-ai-monitoring"
+source = "getsentry/sentry-agent-skills"
+
+[[skills]]
+name = "sentry-setup-logging"
+source = "getsentry/sentry-agent-skills"
+
+[[skills]]
+name = "sentry-setup-metrics"
+source = "getsentry/sentry-agent-skills"
+
+[[skills]]
+name = "sentry-setup-tracing"
+source = "getsentry/sentry-agent-skills"
