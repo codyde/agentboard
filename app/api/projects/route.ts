@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { db } from "@/lib/db";
 import { projects, tasks } from "@/lib/db/schema";
-import { desc } from "drizzle-orm";
 
 export async function GET() {
   const allProjects = await db.query.projects.findMany({
     with: { tasks: true },
-    orderBy: [desc(projects.createdAt)],
   });
+
+  // Sort projects by createdAt in descending order (workaround for Drizzle ORM v0.45.1 bug)
+  allProjects.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   const result = allProjects.map((p) => ({
     id: p.id,
