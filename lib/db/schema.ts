@@ -1,6 +1,8 @@
 import { pgTable, pgEnum, uuid, text, timestamp } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
+export const projectModeEnum = pgEnum("project_mode", ["build", "research"]);
+
 export const projectStatusEnum = pgEnum("project_status", [
   "idle",
   "executing",
@@ -37,6 +39,7 @@ export const projects = pgTable("projects", {
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
   identifier: text("identifier").notNull(),
+  mode: projectModeEnum("mode").notNull().default("build"),
   status: projectStatusEnum("status").notNull().default("idle"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -74,22 +77,52 @@ export const executionLogs = pgTable("execution_logs", {
   content: text("content").notNull().default(""),
 });
 
+export const researchSheets = pgTable("research_sheets", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  taskId: uuid("task_id")
+    .notNull()
+    .references(() => tasks.id, { onDelete: "cascade" }),
+  content: text("content").notNull().default(""),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 // Relations
 export const projectsRelations = relations(projects, ({ many }) => ({
   tasks: many(tasks),
   executionLogs: many(executionLogs),
+  researchSheets: many(researchSheets),
 }));
 
-export const tasksRelations = relations(tasks, ({ one }) => ({
+export const tasksRelations = relations(tasks, ({ one, many }) => ({
   project: one(projects, {
     fields: [tasks.projectId],
     references: [projects.id],
   }),
+  researchSheets: many(researchSheets),
 }));
 
 export const executionLogsRelations = relations(executionLogs, ({ one }) => ({
   project: one(projects, {
     fields: [executionLogs.projectId],
     references: [projects.id],
+  }),
+}));
+
+export const researchSheetsRelations = relations(researchSheets, ({ one }) => ({
+  project: one(projects, {
+    fields: [researchSheets.projectId],
+    references: [projects.id],
+  }),
+  task: one(tasks, {
+    fields: [researchSheets.taskId],
+    references: [tasks.id],
   }),
 }));

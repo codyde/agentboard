@@ -171,3 +171,155 @@ textarea:focus {
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+
+/* Prose styles for markdown rendering */
+.prose-invert h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+.prose-invert h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-primary);
+  padding-bottom: 0.25rem;
+}
+
+.prose-invert h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.prose-invert h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+  color: var(--text-secondary);
+}
+
+.prose-invert p {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.prose-invert ul,
+.prose-invert ol {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-left: 1.5rem;
+  color: var(--text-secondary);
+}
+
+.prose-invert ul {
+  list-style-type: disc;
+}
+
+.prose-invert ol {
+  list-style-type: decimal;
+}
+
+.prose-invert li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.6;
+}
+
+.prose-invert li > ul,
+.prose-invert li > ol {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.prose-invert code {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.85em;
+  font-family: var(--font-mono), monospace;
+  color: var(--accent-hover);
+}
+
+.prose-invert pre {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  padding: 1rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  overflow-x: auto;
+}
+
+.prose-invert pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.prose-invert table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.prose-invert th {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.prose-invert td {
+  border: 1px solid var(--border-primary);
+  padding: 0.5rem 0.75rem;
+  color: var(--text-secondary);
+}
+
+.prose-invert a {
+  color: var(--accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose-invert a:hover {
+  color: var(--accent-primary);
+}
+
+.prose-invert blockquote {
+  border-left: 3px solid var(--accent-primary);
+  padding-left: 1rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.prose-invert hr {
+  border: none;
+  border-top: 1px solid var(--border-primary);
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.prose-invert strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}

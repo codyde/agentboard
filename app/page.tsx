@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { Project, ExecutionLogEntry, SSEEvent } from "@/lib/types";
+import type { Project, ProjectMode, ExecutionLogEntry, SSEEvent, ResearchSheet } from "@/lib/types";
 import Sidebar from "./components/Sidebar";
 import ProjectView from "./components/ProjectView";
 import EmptyState from "./components/EmptyState";
@@ -10,6 +10,7 @@ export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [logs, setLogs] = useState<Record<string, ExecutionLogEntry[]>>({});
+  const [researchSheets, setResearchSheets] = useState<Record<string, ResearchSheet[]>>({});
   const [sidebarCreateOpen, setSidebarCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
@@ -42,6 +43,20 @@ export default function Home() {
       .catch((err) => console.error("Failed to load logs:", err));
   }, [selectedId]);
 
+  // Load research sheets when selecting a research project
+  useEffect(() => {
+    if (!selectedId) return;
+    const project = projects.find((p) => p.id === selectedId);
+    if (!project || project.mode !== "research") return;
+    fetch(`/api/projects/${selectedId}/research-sheets`)
+      .then((res) => res.json())
+      .then((data: ResearchSheet[]) => {
+        setResearchSheets((prev) => ({ ...prev, [selectedId]: data }));
+      })
+      .catch((err) => console.error("Failed to load research sheets:", err));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
+
   function generateIdentifier(name: string): string {
     const base = name
       .replace(/[^a-zA-Z0-9\s]/g, "")
@@ -52,13 +67,13 @@ export default function Home() {
     return base || "PRJ";
   }
 
-  async function createProject(name: string, description: string) {
+  async function createProject(name: string, description: string, mode: ProjectMode = "build") {
     const identifier = generateIdentifier(name);
     try {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, identifier }),
+        body: JSON.stringify({ name, description, identifier, mode }),
       });
       const project: Project = await res.json();
       setProjects((prev) => [project, ...prev]);
@@ -212,6 +227,7 @@ export default function Home() {
             projectId: project.id,
             projectName: project.name,
             projectIdentifier: project.identifier.toLowerCase(),
+            mode: project.mode,
           }),
           signal: controller.signal,
         });
@@ -444,6 +460,23 @@ export default function Home() {
         break;
       }
 
+      case "research_result":
+        if (event.taskId && event.markdown) {
+          const newSheet: ResearchSheet = {
+            id: crypto.randomUUID(),
+            projectId,
+            taskId: event.taskId,
+            content: event.markdown,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          setResearchSheets((prev) => ({
+            ...prev,
+            [projectId]: [...(prev[projectId] || []), newSheet],
+          }));
+        }
+        break;
+
       case "error":
         addLog(projectId, {
           taskId: "",
@@ -491,6 +524,7 @@ export default function Home() {
         <ProjectView
           project={selectedProject}
           logs={logs[selectedProject.id] || []}
+          researchSheets={researchSheets[selectedProject.id] || []}
           onUpdateProject={updateProject}
           onAddTask={(task) => addTaskToProject(selectedProject.id, task)}
           onUpdateTask={(taskId, updates) =>

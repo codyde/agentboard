@@ -1,9 +1,10 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import * as Sentry from "@sentry/nextjs";
 import { NextRequest } from "next/server";
 import path from "path";
 import { mkdir } from "fs/promises";
 import { db } from "@/lib/db";
-import { tasks as tasksTable, executionLogs, projects } from "@/lib/db/schema";
+import { tasks as tasksTable, executionLogs, projects, researchSheets } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 const WORKSPACE_ROOT = path.resolve(process.cwd(), "..", "agentboard-workspace");
@@ -12,11 +13,14 @@ export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const { tasks, projectId, projectName, projectIdentifier } = await req.json();
+  const { tasks, projectId, projectName, projectIdentifier, mode } = await req.json();
+  const isResearch = mode === "research";
 
-  // Create workspace and project directory
+  // Create workspace and project directory (only needed for build mode)
   const projectDir = path.join(WORKSPACE_ROOT, projectIdentifier || projectName.replace(/[^a-zA-Z0-9-_]/g, "-").toLowerCase());
-  await mkdir(projectDir, { recursive: true });
+  if (!isResearch) {
+    await mkdir(projectDir, { recursive: true });
+  }
 
   const encoder = new TextEncoder();
 
@@ -55,11 +59,20 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        send({
-          type: "log",
-          content: `Workspace: ${projectDir}`,
+        Sentry.metrics.count("execution.started", 1, {
+          attributes: { mode: isResearch ? "research" : "build" },
         });
-        persistLog("", "info", `Workspace: ${projectDir}`);
+        Sentry.metrics.gauge("execution.task_count", tasks.length, {
+          attributes: { mode: isResearch ? "research" : "build" },
+        });
+
+        if (isResearch) {
+          send({ type: "log", content: "Mode: Research" });
+          persistLog("", "info", "Mode: Research");
+        } else {
+          send({ type: "log", content: `Workspace: ${projectDir}` });
+          persistLog("", "info", `Workspace: ${projectDir}`);
+        }
 
         for (let i = 0; i < tasks.length; i++) {
           const task = tasks[i];
@@ -72,24 +85,23 @@ export async function POST(req: NextRequest) {
           persistLog(task.id, "info", `Starting: ${task.title}`);
           persistTask(task.id, { status: "in_progress" });
 
-          const prompt = buildTaskPrompt(task, projectName, i, tasks.length, projectDir);
+          const prompt = isResearch
+            ? buildResearchPrompt(task, projectName, i, tasks.length)
+            : buildTaskPrompt(task, projectName, i, tasks.length, projectDir);
+
+          const taskStartTime = performance.now();
 
           try {
             const agentQuery = query({
               prompt,
               options: {
-                cwd: projectDir,
-                allowedTools: [
-                  "Read",
-                  "Write",
-                  "Edit",
-                  "Bash",
-                  "Glob",
-                  "Grep",
-                ],
+                ...(isResearch ? {} : { cwd: projectDir }),
+                allowedTools: isResearch
+                  ? ["WebSearch", "WebFetch", "Read", "Grep", "Glob"]
+                  : ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
                 permissionMode: "bypassPermissions",
                 allowDangerouslySkipPermissions: true,
-                maxTurns: 50,
+                maxTurns: isResearch ? 30 : 50,
                 model: "claude-sonnet-4-6",
               },
             });
@@ -127,6 +139,16 @@ export async function POST(req: NextRequest) {
             }
 
             const output = resultText || "Task completed successfully.";
+            const taskDuration = performance.now() - taskStartTime;
+
+            Sentry.metrics.count("execution.task.completed", 1, {
+              attributes: { mode: isResearch ? "research" : "build" },
+            });
+            Sentry.metrics.distribution("execution.task.duration", taskDuration, {
+              unit: "millisecond",
+              attributes: { mode: isResearch ? "research" : "build" },
+            });
+
             send({
               type: "task_complete",
               taskId: task.id,
@@ -135,7 +157,32 @@ export async function POST(req: NextRequest) {
             });
             persistLog(task.id, "result", `Completed: ${task.title}`);
             persistTask(task.id, { status: "done", output });
+
+            // For research mode, persist the result as a research sheet
+            if (isResearch && projectId) {
+              try {
+                await db
+                  .insert(researchSheets)
+                  .values({
+                    projectId,
+                    taskId: task.id,
+                    content: output,
+                  });
+                send({
+                  type: "research_result",
+                  taskId: task.id,
+                  markdown: output,
+                  content: `Research complete: ${task.title}`,
+                });
+              } catch {
+                // Non-critical - sheet persistence failure shouldn't block execution
+              }
+            }
           } catch (taskError) {
+            Sentry.metrics.count("execution.task.failed", 1, {
+              attributes: { mode: isResearch ? "research" : "build" },
+            });
+
             const errorMessage =
               taskError instanceof Error
                 ? taskError.message
@@ -205,4 +252,41 @@ ${task.description}
 - If the task involves configuration, ensure it is correct and complete.
 - Provide a clear summary of what you accomplished when done.
 - All work must stay within ${projectDir}.`;
+}
+
+function buildResearchPrompt(
+  task: { title: string; description: string },
+  projectName: string,
+  index: number,
+  total: number
+): string {
+  return `You are a research agent executing research task ${index + 1} of ${total} for the project "${projectName}".
+
+## Research Topic: ${task.title}
+
+${task.description}
+
+## Instructions
+You must research this topic thoroughly using web search and web fetch tools. Your final response MUST be well-structured markdown with the following sections:
+
+## Summary
+A concise 2-3 paragraph overview of the research findings.
+
+## Key Findings
+- Bullet points of the most important discoveries
+- Include specific data, statistics, or facts where available
+- Note any emerging trends or patterns
+
+## Details
+Provide deeper analysis organized into logical subsections. Use headers, lists, and tables as appropriate.
+
+## Sources
+List the key sources you consulted with brief descriptions of what each provided.
+
+## Important Guidelines
+- Focus on accuracy and recency of information
+- Cite specific sources when making claims
+- Include relevant code examples, specifications, or technical details when applicable
+- Structure your response for easy reading with proper markdown formatting
+- Your entire final response will be saved as the research result, so make it comprehensive`;
 }

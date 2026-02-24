@@ -2,6 +2,8 @@ export type TaskStatus = "backlog" | "todo" | "in_progress" | "done" | "failed";
 
 export type TaskPriority = "urgent" | "high" | "medium" | "low" | "none";
 
+export type ProjectMode = "build" | "research";
+
 export interface Task {
   id: string;
   projectId?: string;
@@ -19,9 +21,19 @@ export interface Project {
   name: string;
   description: string;
   identifier: string;
+  mode: ProjectMode;
   tasks: Task[];
   createdAt: string;
   status: "idle" | "executing" | "completed" | "failed";
+}
+
+export interface ResearchSheet {
+  id: string;
+  projectId: string;
+  taskId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ExecutionLogEntry {
@@ -46,8 +58,10 @@ export interface SSEEvent {
     | "task_failed"
     | "log"
     | "done"
-    | "error";
+    | "error"
+    | "research_result";
   taskId?: string;
   content?: string;
   output?: string;
+  markdown?: string;
 }
