@@ -1,14 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { projects, tasks } from "@/lib/db/schema";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 export async function GET() {
-  const allProjects = await db.query.projects.findMany({
-    with: { tasks: true },
-    orderBy: [desc(projects.createdAt)],
-  });
+  // Fetch all projects ordered by createdAt
+  const allProjects = await db
+    .select()
+    .from(projects)
+    .orderBy(desc(projects.createdAt));
 
+  // Fetch all tasks for these projects
+  const allTasks = await db
+    .select()
+    .from(tasks)
+    .orderBy(tasks.createdAt);
+
+  // Group tasks by project
+  const tasksByProject = allTasks.reduce((acc, task) => {
+    if (!acc[task.projectId]) {
+      acc[task.projectId] = [];
+    }
+    acc[task.projectId].push(task);
+    return acc;
+  }, {} as Record<string, typeof allTasks>);
+
+  // Map the results
   const result = allProjects.map((p) => ({
     id: p.id,
     name: p.name,
@@ -16,7 +33,7 @@ export async function GET() {
     identifier: p.identifier,
     status: p.status,
     createdAt: p.createdAt.toISOString(),
-    tasks: p.tasks.map((t) => ({
+    tasks: (tasksByProject[p.id] || []).map((t) => ({
       id: t.id,
       projectId: t.projectId,
       title: t.title,
