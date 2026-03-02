@@ -3,16 +3,16 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@anthropic-ai/claude-agent-sdk"],
+  productionBrowserSourceMaps: true,
 };
 
 export default withSentryConfig(nextConfig, {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
-  org: "newbuildwithcode",
-
-  project: "agentboard",
-
+  org: "pj-sentry-global",
+  project: "agent-board-demo",
+  authToken: process.env.SENTRY_AUTH_TOKEN,
   // Only print logs for uploading source maps in CI
   silent: !process.env.CI,
 
