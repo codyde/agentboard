@@ -156,10 +156,18 @@ export default function Sidebar({
             ).length;
 
             return (
-              <button
+              <div
                 key={project.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => onSelectProject(project.id)}
-                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left transition-colors group ${
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelectProject(project.id);
+                  }
+                }}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left transition-colors group cursor-pointer ${
                   isActive
                     ? "bg-bg-active text-text-primary"
                     : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
@@ -213,7 +221,7 @@ export default function Sidebar({
                 >
                   <Trash2 size={12} />
                 </button>
-              </button>
+              </div>
             );
           })}
         </div>
