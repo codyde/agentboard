@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; taskId: string }> }
@@ -22,6 +23,16 @@ export async function PATCH(
   }
 
   if (body.status) {
+    Sentry.logger.info(
+      Sentry.logger.fmt`Task status changed: ${updated.title}`,
+      {
+        taskId: updated.id,
+        projectId: updated.projectId,
+        status: updated.status,
+        priority: updated.priority,
+      }
+    );
+
     Sentry.metrics.count("task.status_change", 1, {
       attributes: { status: updated.status, priority: updated.priority },
     });
@@ -35,6 +46,7 @@ export async function PATCH(
     status: updated.status,
     priority: updated.priority,
     output: updated.output,
+    order: updated.order,
     createdAt: updated.createdAt.toISOString(),
     updatedAt: updated.updatedAt.toISOString(),
   });
@@ -45,6 +57,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
   const { taskId } = await params;
+
+  Sentry.logger.warn(
+    Sentry.logger.fmt`Task deleted: ${taskId}`,
+    { taskId }
+  );
 
   await db.delete(tasks).where(eq(tasks.id, taskId));
 

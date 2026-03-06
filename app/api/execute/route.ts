@@ -59,6 +59,15 @@ export async function POST(req: NextRequest) {
       }
 
       try {
+        Sentry.logger.info(
+          Sentry.logger.fmt`Execution started for project ${projectName}`,
+          {
+            projectId,
+            mode: isResearch ? "research" : "build",
+            taskCount: tasks.length,
+          }
+        );
+
         Sentry.metrics.count("execution.started", 1, {
           attributes: { mode: isResearch ? "research" : "build" },
         });
@@ -76,6 +85,17 @@ export async function POST(req: NextRequest) {
 
         for (let i = 0; i < tasks.length; i++) {
           const task = tasks[i];
+
+          Sentry.logger.info(
+            Sentry.logger.fmt`Task execution started: ${task.title}`,
+            {
+              taskId: task.id,
+              projectId,
+              taskIndex: i + 1,
+              totalTasks: tasks.length,
+              mode: isResearch ? "research" : "build",
+            }
+          );
 
           send({
             type: "task_start",
@@ -141,6 +161,16 @@ export async function POST(req: NextRequest) {
             const output = resultText || "Task completed successfully.";
             const taskDuration = performance.now() - taskStartTime;
 
+            Sentry.logger.info(
+              Sentry.logger.fmt`Task execution completed: ${task.title}`,
+              {
+                taskId: task.id,
+                projectId,
+                durationMs: Math.round(taskDuration),
+                mode: isResearch ? "research" : "build",
+              }
+            );
+
             Sentry.metrics.count("execution.task.completed", 1, {
               attributes: { mode: isResearch ? "research" : "build" },
             });
@@ -179,14 +209,24 @@ export async function POST(req: NextRequest) {
               }
             }
           } catch (taskError) {
-            Sentry.metrics.count("execution.task.failed", 1, {
-              attributes: { mode: isResearch ? "research" : "build" },
-            });
-
             const errorMessage =
               taskError instanceof Error
                 ? taskError.message
                 : "Unknown error occurred";
+
+            Sentry.logger.error(
+              Sentry.logger.fmt`Task execution failed: ${task.title}`,
+              {
+                taskId: task.id,
+                projectId,
+                error: errorMessage,
+                mode: isResearch ? "research" : "build",
+              }
+            );
+
+            Sentry.metrics.count("execution.task.failed", 1, {
+              attributes: { mode: isResearch ? "research" : "build" },
+            });
             send({
               type: "task_failed",
               taskId: task.id,
@@ -206,11 +246,33 @@ export async function POST(req: NextRequest) {
             where: eq(tasksTable.projectId, projectId),
           });
           const hasFailed = projectTasks.some((t) => t.status === "failed");
-          persistProjectStatus(hasFailed ? "failed" : "completed");
+          const finalStatus = hasFailed ? "failed" : "completed";
+          persistProjectStatus(finalStatus);
+
+          Sentry.logger.info(
+            Sentry.logger.fmt`Execution finished for project ${projectName}`,
+            {
+              projectId,
+              finalStatus,
+              totalTasks: tasks.length,
+              failedTasks: projectTasks.filter((t) => t.status === "failed").length,
+              mode: isResearch ? "research" : "build",
+            }
+          );
         }
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Execution failed";
+
+        Sentry.logger.error(
+          Sentry.logger.fmt`Execution failed for project ${projectName}`,
+          {
+            projectId,
+            error: errorMessage,
+            mode: isResearch ? "research" : "build",
+          }
+        );
+
         send({ type: "error", content: errorMessage });
         persistLog("", "error", errorMessage);
         persistProjectStatus("failed");

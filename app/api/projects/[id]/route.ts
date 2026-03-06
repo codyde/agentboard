@@ -59,6 +59,14 @@ export async function PATCH(
   }
 
   if (body.status) {
+    Sentry.logger.info(
+      Sentry.logger.fmt`Project status changed: ${updated.name}`,
+      {
+        projectId: updated.id,
+        status: updated.status,
+      }
+    );
+
     Sentry.metrics.count("project.status_change", 1, {
       attributes: { status: updated.status },
     });
@@ -80,6 +88,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+
+  Sentry.logger.warn(
+    Sentry.logger.fmt`Project deleted: ${id}`,
+    { projectId: id }
+  );
 
   await db.delete(researchSheets).where(eq(researchSheets.projectId, id));
   await db.delete(executionLogs).where(eq(executionLogs.projectId, id));
