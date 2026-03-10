@@ -182,7 +182,10 @@ export default function ProjectView({
             </button>
           ) : (
             <button
-              onClick={() => canExecute && onExecute(project)}
+              onClick={() => {
+                // const settings = JSON.parse(undefined as any); // throws SyntaxError
+                if (canExecute) onExecute(project);
+              }}
               disabled={!canExecute}
               className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 canExecute
