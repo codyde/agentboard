@@ -107,7 +107,6 @@ export default function ProjectView({
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    const x: any = null; x.crash(); // creates type error - property of null
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
