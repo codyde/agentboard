@@ -28,10 +28,10 @@ export async function PUT(
     }
   });
 
-  Sentry.logger.info("Tasks reordered", {
-    projectId,
-    taskCount: orderedIds.length,
-  });
+  Sentry.logger.info(
+    Sentry.logger.fmt`Tasks reordered in project ${projectId}`,
+    { projectId, taskCount: orderedIds.length }
+  );
 
   return NextResponse.json({ success: true });
 }

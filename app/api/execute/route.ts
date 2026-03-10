@@ -60,14 +60,14 @@ export async function POST(req: NextRequest) {
 
       try {
         Sentry.logger.info(
-          Sentry.logger.fmt`Execution started for project ${projectName}`,
+          Sentry.logger.fmt`Execution started for project ${projectName} with ${String(tasks.length)} tasks`,
           {
             projectId,
+            projectName,
             mode: isResearch ? "research" : "build",
             taskCount: tasks.length,
           }
         );
-
         Sentry.metrics.count("execution.started", 1, {
           attributes: { mode: isResearch ? "research" : "build" },
         });
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
           const task = tasks[i];
 
           Sentry.logger.info(
-            Sentry.logger.fmt`Task execution started: ${task.title}`,
+            Sentry.logger.fmt`Task started: ${task.title}`,
             {
               taskId: task.id,
               projectId,
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
             const taskDuration = performance.now() - taskStartTime;
 
             Sentry.logger.info(
-              Sentry.logger.fmt`Task execution completed: ${task.title}`,
+              Sentry.logger.fmt`Task completed: ${task.title} in ${String(Math.round(taskDuration))}ms`,
               {
                 taskId: task.id,
                 projectId,
@@ -170,7 +170,6 @@ export async function POST(req: NextRequest) {
                 mode: isResearch ? "research" : "build",
               }
             );
-
             Sentry.metrics.count("execution.task.completed", 1, {
               attributes: { mode: isResearch ? "research" : "build" },
             });
@@ -215,7 +214,7 @@ export async function POST(req: NextRequest) {
                 : "Unknown error occurred";
 
             Sentry.logger.error(
-              Sentry.logger.fmt`Task execution failed: ${task.title}`,
+              Sentry.logger.fmt`Task failed: ${task.title} - ${errorMessage}`,
               {
                 taskId: task.id,
                 projectId,
@@ -223,7 +222,6 @@ export async function POST(req: NextRequest) {
                 mode: isResearch ? "research" : "build",
               }
             );
-
             Sentry.metrics.count("execution.task.failed", 1, {
               attributes: { mode: isResearch ? "research" : "build" },
             });
@@ -238,6 +236,10 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        Sentry.logger.info(
+          Sentry.logger.fmt`Execution finished for project ${projectName}`,
+          { projectId, projectName, totalTasks: tasks.length }
+        );
         send({ type: "done", content: "All tasks completed." });
         persistLog("", "result", "All tasks completed.");
         // Determine final project status
@@ -246,33 +248,15 @@ export async function POST(req: NextRequest) {
             where: eq(tasksTable.projectId, projectId),
           });
           const hasFailed = projectTasks.some((t) => t.status === "failed");
-          const finalStatus = hasFailed ? "failed" : "completed";
-          persistProjectStatus(finalStatus);
-
-          Sentry.logger.info(
-            Sentry.logger.fmt`Execution finished for project ${projectName}`,
-            {
-              projectId,
-              finalStatus,
-              totalTasks: tasks.length,
-              failedTasks: projectTasks.filter((t) => t.status === "failed").length,
-              mode: isResearch ? "research" : "build",
-            }
-          );
+          persistProjectStatus(hasFailed ? "failed" : "completed");
         }
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Execution failed";
-
         Sentry.logger.error(
-          Sentry.logger.fmt`Execution failed for project ${projectName}`,
-          {
-            projectId,
-            error: errorMessage,
-            mode: isResearch ? "research" : "build",
-          }
+          Sentry.logger.fmt`Execution failed for project ${projectName}: ${errorMessage}`,
+          { projectId, projectName, error: errorMessage }
         );
-
         send({ type: "error", content: errorMessage });
         persistLog("", "error", errorMessage);
         persistProjectStatus("failed");
