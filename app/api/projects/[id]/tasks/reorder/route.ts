@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export async function PUT(
   req: NextRequest,
@@ -11,11 +12,18 @@ export async function PUT(
   const { orderedIds } = await req.json();
 
   if (!Array.isArray(orderedIds)) {
+    Sentry.logger.warn("Reorder called with invalid orderedIds", {
+      projectId,
+    });
     return NextResponse.json(
       { error: "orderedIds must be an array" },
       { status: 400 }
     );
   }
+
+  Sentry.logger.info(
+    Sentry.logger.fmt`Reordering ${orderedIds.length} tasks for project ${projectId}`
+  );
 
   // Update each task's order in a transaction
   await db.transaction(async (tx) => {
@@ -23,8 +31,13 @@ export async function PUT(
       await tx
         .update(tasks)
         .set({ order: i * 1000, updatedAt: new Date() })
-        .where(eq(tasks.id, orderedIds[i]));
+        .where(and(eq(tasks.id, orderedIds[i]), eq(tasks.projectId, projectId)));
     }
+  });
+
+  Sentry.logger.info("Task reorder completed", {
+    projectId,
+    taskCount: orderedIds.length,
   });
 
   return NextResponse.json({ success: true });

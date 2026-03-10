@@ -25,6 +25,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import * as Sentry from "@sentry/nextjs";
 import type { Project, Task, TaskPriority, ExecutionLogEntry, ResearchSheet } from "@/lib/types";
 import TaskRow from "./TaskRow";
 import ExecutionLog from "./ExecutionLog";
@@ -115,6 +116,11 @@ export default function ProjectView({
     if (oldIndex === -1 || newIndex === -1) return;
 
     const reordered = arrayMove(project.tasks, oldIndex, newIndex);
+    const movedTask = project.tasks[oldIndex];
+
+    Sentry.logger.info(
+      Sentry.logger.fmt`Task ${movedTask.title} reordered from position ${oldIndex} to ${newIndex} in project ${project.name}`
+    );
 
     // Optimistic update
     onUpdateProject({ ...project, tasks: reordered });
@@ -124,6 +130,17 @@ export default function ProjectView({
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orderedIds: reordered.map((t) => t.id) }),
+    }).then((res) => {
+      if (!res.ok) {
+        Sentry.logger.error(
+          Sentry.logger.fmt`Failed to persist task reorder for project ${project.id}: status ${res.status}`
+        );
+      }
+    }).catch((err) => {
+      Sentry.logger.error("Task reorder request failed", {
+        projectId: project.id,
+        error: String(err),
+      });
     });
   }
 
